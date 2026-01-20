@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import * as fs from 'fs';
+import * as path from 'path';
 import { initializePool, closePool } from './config/database';
 import authRoutes from './routes/auth.routes';
 import workoutRoutes from './routes/workout.routes';
@@ -22,6 +24,24 @@ app.use(express.json({ limit: '10mb' })); // Aumentado para suportar JSON grande
 // Health check
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// OTA Update endpoint - serve version.json from /var/www/updates/
+app.get('/updates/version.json', (req, res) => {
+    const versionFilePath = '/var/www/updates/version.json';
+
+    try {
+        if (fs.existsSync(versionFilePath)) {
+            const versionData = JSON.parse(fs.readFileSync(versionFilePath, 'utf-8'));
+            res.json(versionData);
+        } else {
+            // Fallback se arquivo não existir
+            res.status(404).json({ error: 'Version file not found' });
+        }
+    } catch (error) {
+        console.error('[OTA] Error reading version file:', error);
+        res.status(500).json({ error: 'Failed to read version info' });
+    }
 });
 
 // Routes
