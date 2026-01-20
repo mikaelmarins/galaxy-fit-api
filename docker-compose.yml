@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  galaxy-fit-api:
+    build: .
+    container_name: galaxy-fit-api
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - ORACLE_USER=${ORACLE_USER}
+      - ORACLE_PASSWORD=${ORACLE_PASSWORD}
+      - ORACLE_CONNECTION_STRING=${ORACLE_CONNECTION_STRING}
+      - JWT_SECRET=${JWT_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
