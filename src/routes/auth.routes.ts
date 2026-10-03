@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { signup, login, getUserById } from '../services/auth.service';
+import { signup, login, getUserById, requestPasswordReset, resetPasswordWithPin } from '../services/auth.service';
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
@@ -63,6 +63,49 @@ router.get('/me', authMiddleware, async (req: AuthenticatedRequest, res: Respons
     } catch (error: any) {
         console.error('[Auth] Get me error:', error.message);
         res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+// POST /auth/forgot-password
+router.post('/forgot-password', async (req: Request, res: Response) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            res.status(400).json({ success: false, error: 'Email é obrigatório' });
+            return;
+        }
+
+        const result = await requestPasswordReset(email);
+        res.json({
+            success: true,
+            message: 'Código de recuperação gerado com sucesso',
+            pin: result.pin // Facilitador de recuperação direta
+        });
+    } catch (error: any) {
+        console.error('[Auth] Forgot password error:', error.message);
+        res.status(400).json({ success: false, error: error.message || 'Erro ao processar solicitação' });
+    }
+});
+
+// POST /auth/reset-password
+router.post('/reset-password', async (req: Request, res: Response) => {
+    try {
+        const { email, pin, newPassword } = req.body;
+        if (!email || !pin || !newPassword) {
+            res.status(400).json({ success: false, error: 'Email, código PIN e nova senha são obrigatórios' });
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            res.status(400).json({ success: false, error: 'A nova senha deve ter no mínimo 6 caracteres' });
+            return;
+        }
+
+        await resetPasswordWithPin(email, pin, newPassword);
+        res.json({ success: true, message: 'Senha atualizada com sucesso!' });
+    } catch (error: any) {
+        console.error('[Auth] Reset password error:', error.message);
+        res.status(400).json({ success: false, error: error.message || 'Erro ao redefinir senha' });
     }
 });
 

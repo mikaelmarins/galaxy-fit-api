@@ -59,5 +59,45 @@ router.get('/me', auth_1.authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
+// POST /auth/forgot-password
+router.post('/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            res.status(400).json({ success: false, error: 'Email é obrigatório' });
+            return;
+        }
+        const result = await (0, auth_service_1.requestPasswordReset)(email);
+        res.json({
+            success: true,
+            message: 'Código de recuperação gerado com sucesso',
+            pin: result.pin // Facilitador de recuperação direta
+        });
+    }
+    catch (error) {
+        console.error('[Auth] Forgot password error:', error.message);
+        res.status(400).json({ success: false, error: error.message || 'Erro ao processar solicitação' });
+    }
+});
+// POST /auth/reset-password
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { email, pin, newPassword } = req.body;
+        if (!email || !pin || !newPassword) {
+            res.status(400).json({ success: false, error: 'Email, código PIN e nova senha são obrigatórios' });
+            return;
+        }
+        if (newPassword.length < 6) {
+            res.status(400).json({ success: false, error: 'A nova senha deve ter no mínimo 6 caracteres' });
+            return;
+        }
+        await (0, auth_service_1.resetPasswordWithPin)(email, pin, newPassword);
+        res.json({ success: true, message: 'Senha atualizada com sucesso!' });
+    }
+    catch (error) {
+        console.error('[Auth] Reset password error:', error.message);
+        res.status(400).json({ success: false, error: error.message || 'Erro ao redefinir senha' });
+    }
+});
 exports.default = router;
 //# sourceMappingURL=auth.routes.js.map

@@ -22,18 +22,7 @@ app.use((0, cors_1.default)({
 app.use(express_1.default.json({ limit: '10mb' })); // Aumentado para suportar JSON grandes de treino
 // Health check
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-// OTA Update endpoint - retorna informações da versão mais recente
-app.get('/updates/version.json', (req, res) => {
-    res.json({
-        version: "1.1.1",
-        versionCode: 111,
-        releaseDate: "2026-01-16",
-        releaseNotes: "Correção do sistema OTA, timer em segundo plano, melhorias de layout",
-        apkUrl: "http://168.75.78.128:8088/releases/v1.1.1/galaxy-fit-sync-1.1.1.apk",
-        forceUpdate: false
-    });
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0-pwa' });
 });
 // Routes
 app.use('/auth', auth_routes_1.default);

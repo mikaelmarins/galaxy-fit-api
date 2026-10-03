@@ -157,3 +157,69 @@ export async function updatePassword(userId: string, newPassword: string): Promi
         await connection.close();
     }
 }
+
+// In-memory PIN store for password recovery (ultra-fast for <= 10 users, 15 min TTL)
+const resetPinStore = new Map<string, { pin: string; expires: number }>();
+
+export async function requestPasswordReset(email: string): Promise<{ success: boolean; pin: string }> {
+    const connection = await getConnection();
+    const cleanEmail = email.toLowerCase().trim();
+
+    try {
+        const result = await connection.execute<any[]>(
+            `SELECT ID, EMAIL FROM ${TABLES.USERS} WHERE EMAIL = :email`,
+            { email: cleanEmail },
+            { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        if (!result.rows || result.rows.length === 0) {
+            throw new Error('Email não encontrado no sistema');
+        }
+
+        // Generate 6-digit random PIN
+        const pin = Math.floor(100000 + Math.random() * 900000).toString();
+        const expires = Date.now() + 15 * 60 * 1000; // 15 minutos
+
+        resetPinStore.set(cleanEmail, { pin, expires });
+        console.log(`[Auth] Password reset PIN generated for ${cleanEmail}: ${pin}`);
+
+        return { success: true, pin };
+    } finally {
+        await connection.close();
+    }
+}
+
+export async function resetPasswordWithPin(email: string, pin: string, newPassword: string): Promise<boolean> {
+    const cleanEmail = email.toLowerCase().trim();
+    const record = resetPinStore.get(cleanEmail);
+
+    if (!record) {
+        throw new Error('Nenhum código de recuperação solicitado para este email');
+    }
+
+    if (Date.now() > record.expires) {
+        resetPinStore.delete(cleanEmail);
+        throw new Error('Código de recuperação expirado. Solicite outro');
+    }
+
+    if (record.pin !== pin.trim()) {
+        throw new Error('Código PIN incorreto');
+    }
+
+    const connection = await getConnection();
+    try {
+        const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+        await connection.execute(
+            `UPDATE ${TABLES.USERS} SET PASSWORD_HASH = :password_hash, UPDATED_AT = SYSTIMESTAMP WHERE EMAIL = :email`,
+            { password_hash: passwordHash, email: cleanEmail },
+            { autoCommit: true }
+        );
+
+        resetPinStore.delete(cleanEmail);
+        console.log(`[Auth] Password successfully reset for ${cleanEmail}`);
+        return true;
+    } finally {
+        await connection.close();
+    }
+}
